@@ -8,9 +8,10 @@
 #SBATCH --gres=gpu:1
 
 module purge
-module load cudatoolkit/12.0
-module load cudnn/cuda-11.x/8.2.0
+module load cudatoolkit/12.6
 module load anaconda3/2022.5
 
-conda activate myo_env
+conda activate maze_env
 python -u world_net.py
+
+
