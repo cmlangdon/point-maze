@@ -2,12 +2,14 @@
 import torch.nn as nn
 import torch
 
+
+
 class WorldNet(nn.Module):
     def __init__(self, actor_network,device):
         super(WorldNet, self).__init__()
-        self.device = device
         self.STATE_DIM = 6
         self.N_STEPS = 100
+        self.device = device
         self.actor_network = actor_network
 
         # Take state and action and ouput new state
@@ -32,7 +34,6 @@ class WorldNet(nn.Module):
         x = torch.zeros(u.shape[0], 1, self.STATE_DIM).to(self.device)
         x[:, 0, :] = u
 
-        # State, x, evolves over time. Updates are non-linear functions of the state (p,v,g) and the action.
         for t in range(1, self.N_STEPS + 1):
             x_new = x[:, t - 1, :] + self.f(torch.hstack([x[:, t - 1, :], self.actor_network(x[:, t - 1, :])]))
             x = torch.cat((x, x_new.unsqueeze_(1)), 1)
@@ -40,3 +41,5 @@ class WorldNet(nn.Module):
         # Calculate reward for each episode and time.
         reward_prediction = torch.exp(-torch.sqrt(torch.sum(self.mlp_reward(x[:, 1:, :]) ** 2, dim=2, keepdim=True)))
         return torch.concatenate([x[:, :-1, :], reward_prediction], dim=2)
+
+
