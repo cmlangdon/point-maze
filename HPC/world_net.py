@@ -26,12 +26,15 @@ env = gym.make('PointMaze_MediumDense-v3',
                )
 
 # Initialize networks
-world_network = WorldNet(actor_network = ActorNet().to(device),device = device).to(device)
+actor_network  = torch.load('../Data/actor_network.pth', weights_only=False, map_location=device)
+#world_network  = torch.load('Data/world_network.pth',weights_only=False,map_location = device).to(device)
+
+world_network = WorldNet(actor_network = actor_network.to(device),device = device).to(device)
 
 # Creat dataset
 def generate_experience(actor, device='cpu'):
-    NUM_EPISODES = 1000
-    MAX_STEPS = 100
+    NUM_EPISODES = 2000
+    MAX_STEPS = 25
     inputs = torch.zeros(NUM_EPISODES, 6)
     labels = torch.zeros(NUM_EPISODES, MAX_STEPS, 7)
     for episode in range(NUM_EPISODES):
@@ -69,9 +72,10 @@ NUM_EPOCHS = 10000
 for run in range(1):
     # Train world model
     print('Training world net')
+    world_network.N_STEPS = 25
     inputs, labels = generate_experience( world_network.actor_network,device=device)
     my_dataset = TensorDataset(inputs, labels)  #
-    my_dataloader = DataLoader(my_dataset, batch_size=256, shuffle=True)
+    my_dataloader = DataLoader(my_dataset, batch_size=128, shuffle=True)
     
     # Turn gradients for actor
     for param in world_network.actor_network.parameters():
@@ -81,8 +85,9 @@ for run in range(1):
     for param in world_network.mlp_reward.parameters():
         param.requires_grad_(True)
 
-    optimizer = torch.optim.Adam(world_network.parameters(), lr=.001, weight_decay=0)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3000, gamma=0.1)
+    optimizer = torch.optim.Adam(world_network.parameters(), lr=.0001, weight_decay=0.)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
+    #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=1000,eta_min=.0001)
     # Training loop
     for i in range(NUM_EPOCHS):
         epoch_loss = 0
@@ -102,11 +107,14 @@ for run in range(1):
             print('Epoch: {}/{}.............'.format(i, NUM_EPOCHS), end=' ')
             labels_centered  = labels - torch.mean(labels,dim=1,keepdim=True)
             print("mse_z: {:.8f}".format(torch.nn.MSELoss()(outputs,labels).item()/ torch.nn.MSELoss()(torch.zeros_like(labels_centered), labels_centered).item()))
-            torch.save(world_network,'world_network.pth')
-            torch.save(world_network.actor_network, 'actor_network.pth')
+            torch.save(world_network, '../Data/world_network.pth')
+            torch.save(world_network.actor_network, '../Data/actor_network.pth')
+            
         scheduler.step()
 
-    # TRAIN ACTOR
+        
+
+    #TRAIN ACTOR
     for param in world_network.actor_network.parameters():
         param.requires_grad_(True)
     for param in world_network.f.parameters():
@@ -114,8 +122,9 @@ for run in range(1):
     for param in world_network.mlp_reward.parameters():
         param.requires_grad_(False)
 
-    optimizer = torch.optim.Adam(world_network.parameters(), lr=0.0001)
-    
+    NUM_EPOCHS = 10000
+    optimizer = torch.optim.Adam(world_network.parameters(), lr=0.001)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
     for i in range(NUM_EPOCHS):
         epoch_loss = 0
         for batch_idx, (u_batch, z_batch) in enumerate(my_dataloader):
@@ -123,7 +132,7 @@ for run in range(1):
             x_batch = world_network.forward(u_batch)
 
             loss = -torch.sum(x_batch[:, :, -1])
-            #loss = -torch.nn.MSELoss()(x_batch, z_batch) 
+            #loss = -torch.nn.MSELoss()(x_batch, z_batch)
 
             epoch_loss += loss.item() / NUM_EPOCHS
             loss.backward()
@@ -137,6 +146,7 @@ for run in range(1):
             #print("mse_z: {:.8f}".format(-torch.nn.MSELoss()(outputs,labels).item()/ torch.nn.MSELoss()(torch.zeros_like(labels_centered), labels_centered).item()))
 
             print("Reward: {:.8f}".format(torch.mean(torch.sum(outputs[:, :, -1],dim=[1]))))
-            torch.save(world_network, 'world_network.pth')
-            torch.save(world_network.actor_network, 'actor_network.pth')
+            torch.save(world_network, '../Data/world_network.pth')
+            torch.save(world_network.actor_network, '../Data/actor_network.pth')
 
+        scheduler.step()
