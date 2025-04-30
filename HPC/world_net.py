@@ -26,7 +26,7 @@ env = gym.make('PointMaze_MediumDense-v3',
                )
 
 # Initialize networks
-actor_network  = torch.load('../Data/actor_network.pth', weights_only=False, map_location=device)
+actor_network  = torch.load('Data/actor_network.pth',weights_only=False,map_location=device)
 #world_network  = torch.load('Data/world_network.pth',weights_only=False,map_location = device).to(device)
 
 world_network = WorldNet(actor_network = actor_network.to(device),device = device).to(device)
@@ -67,9 +67,9 @@ def generate_experience(actor, device='cpu'):
 
 
 # PRETRAIN ACTOR
-NUM_EPOCHS = 10000
+NUM_EPOCHS = 2000
 
-for run in range(1):
+for run in range(100):
     # Train world model
     print('Training world net')
     world_network.N_STEPS = 25
@@ -86,7 +86,7 @@ for run in range(1):
         param.requires_grad_(True)
 
     optimizer = torch.optim.Adam(world_network.parameters(), lr=.0001, weight_decay=0.)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
+    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
     #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=1000,eta_min=.0001)
     # Training loop
     for i in range(NUM_EPOCHS):
@@ -107,10 +107,10 @@ for run in range(1):
             print('Epoch: {}/{}.............'.format(i, NUM_EPOCHS), end=' ')
             labels_centered  = labels - torch.mean(labels,dim=1,keepdim=True)
             print("mse_z: {:.8f}".format(torch.nn.MSELoss()(outputs,labels).item()/ torch.nn.MSELoss()(torch.zeros_like(labels_centered), labels_centered).item()))
-            torch.save(world_network, '../Data/world_network.pth')
-            torch.save(world_network.actor_network, '../Data/actor_network.pth')
+            torch.save(world_network,'Data/world_network.pth')
+            torch.save(world_network.actor_network, 'Data/actor_network.pth')
             
-        scheduler.step()
+       #scheduler.step()
 
         
 
@@ -122,9 +122,9 @@ for run in range(1):
     for param in world_network.mlp_reward.parameters():
         param.requires_grad_(False)
 
-    NUM_EPOCHS = 10000
-    optimizer = torch.optim.Adam(world_network.parameters(), lr=0.001)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
+    NUM_EPOCHS = 2000
+    optimizer = torch.optim.Adam(world_network.parameters(), lr=0.0001)
+    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
     for i in range(NUM_EPOCHS):
         epoch_loss = 0
         for batch_idx, (u_batch, z_batch) in enumerate(my_dataloader):
@@ -146,7 +146,7 @@ for run in range(1):
             #print("mse_z: {:.8f}".format(-torch.nn.MSELoss()(outputs,labels).item()/ torch.nn.MSELoss()(torch.zeros_like(labels_centered), labels_centered).item()))
 
             print("Reward: {:.8f}".format(torch.mean(torch.sum(outputs[:, :, -1],dim=[1]))))
-            torch.save(world_network, '../Data/world_network.pth')
-            torch.save(world_network.actor_network, '../Data/actor_network.pth')
+            torch.save(world_network, 'Data/world_network.pth')
+            torch.save(world_network.actor_network, 'Data/actor_network.pth')
 
-        scheduler.step()
+       # scheduler.step()
