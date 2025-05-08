@@ -19,6 +19,15 @@ MEDIUM_MAZE = [
     [1, 0, 0, 0, 0, 0, 0, 1],
     [1, 1, 1, 1, 1, 1, 1, 1]]
 
+# MEDIUM_MAZE = [
+#     [1, 1, 1, 1, 1, 1, 1],
+#     [1, 0, 0, 0, 0, 0, 1],
+#     [1, 0, 0, 0, 0, 0, 1],
+#     [1, 0, 0, 0, 0, 0, 1],
+#     [1, 0, 0, 0, 0, 0, 1],
+#     [1, 0, 0, 0, 0, 0, 1],
+#     [1, 1, 1, 1, 1, 1, 1]]
+
 # Initialize environment with this map for training.
 env = gym.make('PointMaze_MediumDense-v3',
                max_episode_steps=100, maze_map=MEDIUM_MAZE,
@@ -26,15 +35,15 @@ env = gym.make('PointMaze_MediumDense-v3',
                )
 
 # Initialize networks
-actor_network  = torch.load('Data/actor_network.pth',weights_only=False,map_location=device)
+#actor_network  = torch.load('Data/actor_network.pth',weights_only=False,map_location=device)
 #world_network  = torch.load('Data/world_network.pth',weights_only=False,map_location = device).to(device)
 
-world_network = WorldNet(actor_network = actor_network.to(device),device = device).to(device)
+world_network = WorldNet(actor_network = ActorNet().to(device),device = device).to(device)
 
 # Creat dataset
 def generate_experience(actor, device='cpu'):
     NUM_EPISODES = 2000
-    MAX_STEPS = 25
+    MAX_STEPS = 30
     inputs = torch.zeros(NUM_EPISODES, 6)
     labels = torch.zeros(NUM_EPISODES, MAX_STEPS, 7)
     for episode in range(NUM_EPISODES):
@@ -67,12 +76,12 @@ def generate_experience(actor, device='cpu'):
 
 
 # PRETRAIN ACTOR
-NUM_EPOCHS = 2000
+NUM_EPOCHS = 5000
 
-for run in range(100):
+for run in range(1000):
     # Train world model
     print('Training world net')
-    world_network.N_STEPS = 25
+    world_network.N_STEPS = 30
     inputs, labels = generate_experience( world_network.actor_network,device=device)
     my_dataset = TensorDataset(inputs, labels)  #
     my_dataloader = DataLoader(my_dataset, batch_size=128, shuffle=True)
@@ -85,7 +94,7 @@ for run in range(100):
     for param in world_network.mlp_reward.parameters():
         param.requires_grad_(True)
 
-    optimizer = torch.optim.Adam(world_network.parameters(), lr=.0001, weight_decay=0.)
+    optimizer = torch.optim.Adam(world_network.parameters(), lr=.0001, weight_decay=0.001)
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
     #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=1000,eta_min=.0001)
     # Training loop
@@ -122,7 +131,7 @@ for run in range(100):
     for param in world_network.mlp_reward.parameters():
         param.requires_grad_(False)
 
-    NUM_EPOCHS = 2000
+
     optimizer = torch.optim.Adam(world_network.parameters(), lr=0.0001)
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2500, gamma=0.1)
     for i in range(NUM_EPOCHS):
